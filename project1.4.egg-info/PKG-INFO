@@ -1,0 +1,13 @@
+Metadata-Version: 2.2
+Name: project1.4
+Version: 0.1
+Summary: A project for university course
+Home-page: https://github.com/yourusername/project1.4
+Author: osama
+Author-email: osamakassab95@gmail.com
+Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: summary
