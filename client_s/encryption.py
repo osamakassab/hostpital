@@ -25,7 +25,6 @@ def encrypt_aes(data):
 
 # إعداد التسجيل (logging)
 logging.basicConfig(level=logging.DEBUG)
-
 def decrypt_aes(encrypted_data):
     try:
         encrypted_data = base64.b64decode(encrypted_data)
@@ -33,16 +32,20 @@ def decrypt_aes(encrypted_data):
         ciphertext = encrypted_data[16:]  # استخراج النص المشفر
         cipher = Cipher(algorithms.AES(AES_KEY), modes.CBC(iv), backend=default_backend())
         decryptor = cipher.decryptor()
-    # فك التشفر
+        
+        # فك التشفير
         padded_data = decryptor.update(ciphertext) + decryptor.finalize()
-    # إزالة الحشو
+        
+        # إزالة الحشو
         unpadder = PKCS7(algorithms.AES.block_size).unpadder()
         data = unpadder.update(padded_data) + unpadder.finalize()
+        
+
         return data.decode()
     except ValueError as e:
-        logging.error(f"فك التشفير فشل: {e}")
-        raise  # إعادة رفع الاستثناء بعد التسجيل
-    except Exception as e:
-        logging.error(f"حدث خطأ غير متوقع أثناء فك التشفير: {e}")
+        logging.error(f"Error in decrypt_aes (ValueError): {e}")
+        # logging.error(f"Encrypted data: {encrypted_data}")
         raise
-
+    except Exception as e:
+        logging.error(f"Unexpected error in decrypt_aes: {e}")
+        raise

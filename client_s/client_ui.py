@@ -52,7 +52,6 @@ def login_user():
     }
     response = send_request(request)
     print(response)
-
     # إذا تم تسجيل الدخول كمريض
     if "Login successful" in response and "Role: patient" in response:
         patient_menu(username)

@@ -4,6 +4,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.fernet import Fernet
 
+from config import SERVER_PRIVATE_KEY
+
 # إعداد قاعدة البيانات
 def creat_database():
     print("Setting up database...")
@@ -118,14 +120,19 @@ def register_user(data, conn):
 def login_user(data, conn):
     cursor = conn.cursor()
     hashed_password = hashlib.sha256(data['password'].encode()).hexdigest()
-    cursor.execute('''SELECT role FROM users WHERE username = ? AND password = ?''',
+    cursor.execute('''SELECT role, public_key FROM users WHERE username = ? AND password = ?''',
                     (data['username'], hashed_password))
     user = cursor.fetchone()
-    if user:
-        role = user[0]
-        return f"Login successful! Role: {role}"
-    return "Error: Invalid username or password."
-
+    
+    # التحقق مما إذا كان المستخدم موجودًا
+    if user is None:
+        return "Error: Invalid username or password."
+    
+    # استرجاع الدور والمفتاح العام للمستخدم
+    role = user[0]
+    user_public_key = user[1]  # استرجاع المفتاح العام للمستخدم
+    
+    return f"Login successful! Role: {role}|UserPublicKey:{user_public_key}"
 # حجز موعد
 def book_appointment(data, conn):
     cursor = conn.cursor()

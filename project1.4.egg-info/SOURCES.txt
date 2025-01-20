@@ -1,6 +1,5 @@
 setup.py
 client_s/__init__.py
-client_s/client.py
 client_s/client_network.py
 client_s/client_ui.py
 client_s/encryption.py
