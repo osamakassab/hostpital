@@ -58,6 +58,16 @@ def send_encrypted_data(request, session_key,server_public_key):
     resev_response = client_socket.recv(1024).decode().strip()
     response=decrypt_session_key(resev_response,session_key)
     return response
+def send_sign(sign):
+    
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(("127.0.0.1", 7000))  # الاتصال بالمخدم
+    json_request = json.dumps(sign)
+    client_socket.send(json_request.encode())
+    resev_response = client_socket.recv(1024).decode().strip()
+    decrypted_response = decrypt_aes(resev_response)
+    response = decrypted_response.decode()  # تحويل البيانات المفكوكة إلى نص
+    return response
 
 def send_request(request):
     """

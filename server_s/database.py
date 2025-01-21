@@ -88,7 +88,24 @@ def encrypt_private_key(private_key):
 
 def decrypt_private_key(encrypted_private_key):
     return cipher.decrypt(encrypted_private_key.encode()).decode()
-
+def save_signed_appointment(conn, username, appointment_data):
+    """
+    حفظ الموعد الموقع في قاعدة البيانات.
+    
+    :param conn: اتصال قاعدة البيانات.
+    :param username: اسم المستخدم.
+    :param appointment_data: بيانات الموعد الموقع.
+    :return: معرف الموعد (ID).
+    """
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''INSERT INTO appointments (username, doctor_name, appointment_date, appointment_time)
+                        VALUES (?, ?, ?, ?)''',
+                    (username, appointment_data["doctor_name"], appointment_data["appointment_date"], appointment_data["appointment_time"]))
+        conn.commit()
+        return cursor.lastrowid  # إرجاع معرف الموعد
+    except Exception as e:
+        raise Exception(f"Error saving signed appointment: {e}")
 # تسجيل حساب جديد
 def register_user(data, conn):
     try:
@@ -108,7 +125,7 @@ def register_user(data, conn):
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (data["username"], hashed_password, data["national_id"], data["age"], data["job"],
                         data["phone"], data["address"], data["specialization"], data["role"],
-                        public_key, encrypted_private_key))
+                        public_key, private_key))
         
         conn.commit()
         return "Account created successfully with RSA keys!"

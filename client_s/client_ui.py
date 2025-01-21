@@ -1,6 +1,9 @@
+import json
 import os
+import sqlite3
 
-from client_s.client_network import  send_encrypted_data, send_request, send_session_key
+from client_s.client_network import  send_encrypted_data, send_request, send_session_key, send_sign
+from client_s.encryption import sign_data
 
 global SERVER_PUBLIC_KEY
 def register_user():
@@ -146,11 +149,94 @@ def add_medical_record(username):
     response = send_encrypted_data(medical_record, session_key,SERVER_PUBLIC_KEY)
     print("respose from server ",response)
     
+    import sqlite3
+
+def get_private_key(username):
+    """
+    استخراج المفتاح الخاص للمستخدم من قاعدة البيانات.
+    
+    :param username: اسم المستخدم (الطبيب).
+    :return: المفتاح الخاص بتنسيق PEM.
+    """
+    try:
+        # الاتصال بقاعدة البيانات
+        conn = sqlite3.connect('hospital.db')
+        cursor = conn.cursor()
+        
+        # استعلام قاعدة البيانات للحصول على المفتاح الخاص
+        cursor.execute("SELECT private_key FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+        
+        if result:
+            private_key_pem = result[0]  # المفتاح الخاص
+            return private_key_pem
+        else:
+            print(f"Error: User '{username}' not found in the database.")
+            return None
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return None
+    finally:
+        conn.close()  # إغلاق الاتصال بقاعدة البيانات
+
+
+def sign_appointment_and_send_tests(username):
+    """
+    توقيع الموعد وإرسال قائمة التحاليل المطلوبة.
+    
+    :param username: اسم المستخدم للطبيب.
+    """
+    # الحصول على تفاصيل الموعد والتحاليل
+    patient_name = input("Enter patient's name: ")
+    appointment_date = input("Enter appointment date (YYYY-MM-DD): ")
+    appointment_time = input("Enter appointment date (HH:MM): ")
+    tests = input("Enter required tests (comma-separated): ")
+    
+    # بناء البيانات
+    appointment_data = {
+        "doctor_name":username,
+        "patient_name": patient_name,
+        "appointment_date": appointment_date,
+        "appointment_time" :appointment_time,
+        "tests": tests
+    }
+    
+    # تحويل البيانات إلى JSON
+    data_to_sign = json.dumps(appointment_data)
+    private_key_pem = get_private_key(username)
+    # print("private_key_pem            ",private_key_pem)
+    if not private_key_pem:
+        print("Error: Could not retrieve private key. Appointment not signed.")
+        return
+    
+    signature = sign_data(data_to_sign, private_key_pem)
+    
+    # إرسال البيانات الموقعة إلى الخادم
+    request = {
+        "type": "sign_appointment",
+        "username": username,
+        "data": data_to_sign,
+        "signature": signature
+    }
+    
+    response =send_sign(request)
+    print(response)
+
 def doctor_menu(username):
     """
     قائمة الطبيب بعد تسجيل الدخول.
     
     :param username: اسم المستخدم للطبيب.
     """
-    print("\n--- Welcome Doctor ---")
-    # يمكن إضافة وظائف خاصة بالطبيب هنا
+    while True:
+        print("\n--- Welcome Doctor ---")
+        print("1. Sign appointment and send tests")
+        print("2. Logout")
+        action = input("Choose an option: ")
+        if action == "1":
+            sign_appointment_and_send_tests(username)
+        elif action == "2":
+            print("Logging out...")
+            break
+        else:
+            print("Invalid option. Please try again.")

@@ -1,17 +1,99 @@
 import logging
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
+from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.backends import default_backend
+from cryptography.fernet import Fernet
+
 import os
 import base64
 
+# ENCRYPTION_KEY = Fernet.generate_key()
+# cipher = Fernet(ENCRYPTION_KEY)
 # مفتاح AES ثابت (يجب تغييره ليكون أكثر أمانًا)
 AES_KEY = b'ThisIsASecretKey'  # 16 bytes key (128-bit AES)
 
+# def decrypt_private_key(encrypted_private_key):
+#     return cipher.decrypt(encrypted_private_key.encode()).decode()
 
+def sign_data(data, private_key_pem):
+    """
+    توقيع البيانات باستخدام المفتاح الخاص (RSA).
+    
+    :param data: البيانات المراد توقيعها (نص).
+    :param private_key_pem: المفتاح الخاص بتنسيق PEM.
+    :return: التوقيع الرقمي (base64).
+    """
+    # private_kye_decr=decrypt_private_key(private_key_pem)
+    # print(private_key_pem)
+    try:
+        # تحميل المفتاح الخاص
+        private_key = serialization.load_pem_private_key(
+            private_key_pem.encode(),  # تحويل المفتاح إلى بايت
+            password=None,  # إذا كان المفتاح محميًا بكلمة مرور، قم بتمريرها هنا
+            backend=default_backend()
+        )
+        
+        # تحويل البيانات إلى بايت إذا كانت نصًا
+        if isinstance(data, str):
+            data = data.encode()
+        
+        # توقيع البيانات
+        signature = private_key.sign(
+            data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        print("=============signature=============== /n  ",signature)
+        # تحويل التوقيع إلى base64
+        return base64.b64encode(signature).decode()
+    except Exception as e:
+        print(f"Error signing data: {e}")
+        raise
+
+def verify_signature(data, signature, public_key_pem):
+    """
+    التحقق من صحة التوقيع الرقمي باستخدام المفتاح العام.
+    
+    :param data: البيانات الأصلية (نص).
+    :param signature: التوقيع الرقمي (base64).
+    :param public_key_pem: المفتاح العام بتنسيق PEM.
+    :return: True إذا كان التوقيع صحيحًا، False إذا كان غير صحيح.
+    """
+    try:
+        # تحميل المفتاح العام
+        public_key = serialization.load_pem_public_key(
+            public_key_pem.encode(),  # تحويل المفتاح إلى بايت
+            backend=default_backend()
+        )
+        
+        # تحويل البيانات إلى بايت إذا كانت نصًا
+        if isinstance(data, str):
+            data = data.encode()
+        
+        # فك تشفير التوقيع
+        signature_bytes = base64.b64decode(signature)
+        
+        # التحقق من التوقيع
+        public_key.verify(
+            signature_bytes,
+            data,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return True
+    except Exception as e:
+        print(f"Error verifying signature: {e}")
+        return False    
 
 def encrypt_with_key(data, public_key_pem: str) -> str:
     """
