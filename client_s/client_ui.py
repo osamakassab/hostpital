@@ -1,7 +1,8 @@
+import os
 
-from client_s.client_network import send_request
+from client_s.client_network import  send_encrypted_data, send_request, send_session_key
 
-
+global SERVER_PUBLIC_KEY
 def register_user():
     """
     تسجيل مستخدم جديد.
@@ -41,6 +42,8 @@ def login_user():
     """
     تسجيل دخول المستخدم.
     """
+    global SERVER_PUBLIC_KEY  # الإشارة إلى المتغير العام
+
     print("\n--- Login ---")
     username = input("Username: ")
     password = input("Password: ")
@@ -50,14 +53,22 @@ def login_user():
         "username": username,
         "password": password
     }
-    response = send_request(request)
+    response_data = send_request(request)
+    response = response_data["response"]
     print(response)
-    # إذا تم تسجيل الدخول كمريض
-    if "Login successful" in response and "Role: patient" in response:
-        patient_menu(username)
-    elif "Login successful" in response and "Role: doctor" in response:
-        doctor_menu(username)
+    
+    # إذا تم تسجيل الدخول بنجاح
+    if "Login successful" in response:
+        # حفظ المفتاح العام في المتغير العام
+        SERVER_PUBLIC_KEY = response_data["server_public_key"]   
 
+        # إذا كان المستخدم مريضًا
+        if "Role: patient" in response:
+            patient_menu(username)
+        # إذا كان المستخدم طبيبًا
+        elif "Role: doctor" in response:
+            doctor_menu(username)
+            
 def patient_menu(username):
     """
     قائمة المريض بعد تسجيل الدخول.
@@ -101,24 +112,40 @@ def book_appointment(username):
 
 def add_medical_record(username):
     """
-    إضافة سجل طبي للمريض.
+    إضافة سجل طبي للمريض باستخدام تشفير PGP و Session Key.
     
     :param username: اسم المستخدم للمريض.
     """
+    # التحقق من وجود المفتاح العام
+
+    if SERVER_PUBLIC_KEY is None:
+        print("Error: Server public key is not available. Please login first.")
+        return
+
+    # توليد مفتاح الجلسة
+    session_key = os.urandom(32)  # 256-bit keyprit
+    print("sesion key        ",session_key)
+    # إرسال مفتاح الجلسة المشفر إلى الخادم وانتظار الموافقة
+    if not send_session_key(session_key, SERVER_PUBLIC_KEY):
+        print("Error: Session key was not approved by the server.")
+        return
     chronic_diseases = input("Enter chronic diseases: ")
     surgeries = input("Enter previous surgeries: ")
     medications = input("Enter regular medications: ")
-    medical_record_request = {
+
+
+    # بناء البيانات
+    medical_record = {
         "type": "add_medical_record",
         "username": username,
         "chronic_diseases": chronic_diseases,
         "surgeries": surgeries,
         "medications": medications
     }
-    record_response = send_request(medical_record_request)
-    # print ("send to network:",medical_record_request)
-    print(record_response)
-
+    # إرسال البيانات المشفرة
+    response = send_encrypted_data(medical_record, session_key,SERVER_PUBLIC_KEY)
+    print("respose from server ",response)
+    
 def doctor_menu(username):
     """
     قائمة الطبيب بعد تسجيل الدخول.
